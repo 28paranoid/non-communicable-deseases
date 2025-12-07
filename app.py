@@ -9,66 +9,59 @@ st.title("Global Health Statistics Predictor (Manual Implementation)")
 
 @st.cache_resource
 def load_and_prep_data():
-    # 1. Load Data
+  
     df = pd.read_csv("cleaned_data.csv")
     
-    # Fill missing dimensions
+ 
     df['DIMENSION_NAME'] = df['DIMENSION_NAME'].fillna('Total')
 
-    # 2. Manual Encoding (Replacing LabelEncoder)
-    # We create dictionaries to map each unique category to a number
-    # This acts exactly like LabelEncoder but is explicit
+    
     country_map = {val: i for i, val in enumerate(df['COUNTRY_DISPLAY'].unique())}
     gho_map = {val: i for i, val in enumerate(df['GHO_DISPLAY'].unique())}
     dim_map = {val: i for i, val in enumerate(df['DIMENSION_NAME'].unique())}
 
-    # Apply the mapping to create new numerical columns
+  
     df['country_encoded'] = df['COUNTRY_DISPLAY'].map(country_map)
     df['gho_encoded'] = df['GHO_DISPLAY'].map(gho_map)
     df['dim_encoded'] = df['DIMENSION_NAME'].map(dim_map)
 
-    # Return the data and the maps (so we can use them for prediction later)
+  
     return df, country_map, gho_map, dim_map
 
 @st.cache_resource
 def train_model(df):
-    # 3. Manual Train-Test Split (Replacing train_test_split)
-    # Shuffle the dataframe randomly
+   
     df_shuffled = df.sample(frac=1, random_state=42).reset_index(drop=True)
-    
-    # Define split point (e.g., 80% for training)
+   
     split_index = int(len(df_shuffled) * 0.8)
     
-    # Slice the data
+   
     train_data = df_shuffled.iloc[:split_index]
     test_data = df_shuffled.iloc[split_index:]
     
-    # Define Features (X) and Target (y)
+  
     feature_cols = ['country_encoded', 'gho_encoded', 'dim_encoded', 'YEAR_DISPLAY']
     X_train = train_data[feature_cols]
     y_train = train_data['Value_num']
     X_test = test_data[feature_cols]
     y_test = test_data['Value_num']
     
-    # Train the Model (RandomForest is still efficient to use from sklearn)
     model = RandomForestRegressor(n_estimators=100, random_state=42)
     model.fit(X_train, y_train)
     
-    # 4. Manual Metric Calculation (Replacing r2_score)
-    # R-squared formula: 1 - (sum_squared_residuals / total_sum_of_squares)
+  
     predictions = model.predict(X_test)
     
-    ss_res = np.sum((y_test - predictions) ** 2)       # Residual sum of squares
-    ss_tot = np.sum((y_test - np.mean(y_test)) ** 2)   # Total sum of squares
+    ss_res = np.sum((y_test - predictions) ** 2)      
+    ss_tot = np.sum((y_test - np.mean(y_test)) ** 2)   
     r2_score = 1 - (ss_res / ss_tot)
     
     return model, r2_score
 
-# Execute loading and training
 df, country_map, gho_map, dim_map = load_and_prep_data()
 model, accuracy = train_model(df)
 
-# --- STREAMLIT DASHBOARD UI ---
+
 
 menu = st.sidebar.selectbox(
     "Navigate",
@@ -134,12 +127,12 @@ elif menu == "Predict Health Value":
     
     if st.button("Predict"):
         try:
-            # Map the inputs to numbers using our dictionaries
+           
             c_val = country_map[selected_country]
             g_val = gho_map[selected_indicator]
             d_val = dim_map[selected_dimension]
             
-            # Make prediction
+           
             features = np.array([[c_val, g_val, d_val, selected_year]])
             prediction = model.predict(features)[0]
             
